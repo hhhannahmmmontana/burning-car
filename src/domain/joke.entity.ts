@@ -1,5 +1,6 @@
-import { Column, Entity, PrimaryGeneratedColumn } from "typeorm";
-import { Signed } from "./signed.entity";
+import { Column, Entity, JoinTable, ManyToMany, OneToMany, PrimaryGeneratedColumn } from "typeorm";
+import { Signed } from "./signed";
+import { Tag } from "./tag.entity";
 
 @Entity()
 export class Joke extends Signed {
@@ -9,8 +10,9 @@ export class Joke extends Signed {
     @Column()
     text: string;
 
-    @Column()
-    tags: string[];
+    @ManyToMany(() => Tag)
+    @JoinTable()
+    tags: Tag[];
 
     @Column()
     rating: number;

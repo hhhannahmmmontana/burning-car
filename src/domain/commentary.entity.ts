@@ -1,5 +1,5 @@
 import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
-import { Signed } from "./signed.entity";
+import { Signed } from "./signed";
 import { Joke } from "./joke.entity";
 
 @Entity()

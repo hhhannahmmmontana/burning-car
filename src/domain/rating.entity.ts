@@ -1,11 +1,13 @@
-import { Column, Entity, ManyToOne, Unique } from "typeorm";
-import { WithDate } from "./withdate.entity";
+import { Column, Entity, ManyToOne, PrimaryGeneratedColumn, Unique } from "typeorm";
 import { User } from "./user.entity";
 import { Joke } from "./joke.entity";
 
 @Entity()
 @Unique(["user", "joke"])
-export class Rating extends WithDate {
+export class Rating {
+    @PrimaryGeneratedColumn()
+    id: number;
+
     @Column({ type: "float" })
     score: number;
 

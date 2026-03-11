@@ -1,8 +1,7 @@
-import { Column, ManyToOne } from "typeorm";
+import { Column, CreateDateColumn, ManyToOne } from "typeorm";
 import { User } from "./user.entity";
-import { WithDate } from "./withdate.entity";
 
-export abstract class Signed extends WithDate {
+export abstract class Signed {
     @ManyToOne(() => User, { nullable: true })
     author: User;
 
@@ -11,4 +10,7 @@ export abstract class Signed extends WithDate {
 
     @Column({ nullable: true })
     authorIPv6: string;
+
+    @CreateDateColumn()
+    createdAt: Date;
 }

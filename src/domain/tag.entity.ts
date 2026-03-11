@@ -1,8 +1,8 @@
 import { Entity, PrimaryColumn } from "typeorm";
-import { Signed } from "./signed.entity";
+import { Signed } from "./signed";
 
 @Entity()
-export class Category extends Signed {
+export class Tag extends Signed {
     @PrimaryColumn()
     name: string;
 }

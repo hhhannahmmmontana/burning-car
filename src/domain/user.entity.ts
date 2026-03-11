@@ -1,11 +1,13 @@
-import { Column, Entity, PrimaryColumn } from "typeorm";
-import { WithDate } from "./withdate.entity";
+import { Column, CreateDateColumn, Entity, PrimaryColumn } from "typeorm";
 
 @Entity()
-export class User extends WithDate {
+export class User {
     @PrimaryColumn()
     username: string;
 
     @Column()
     passwordHash: string;
+
+    @CreateDateColumn()
+    createdAt: Date;
 }
