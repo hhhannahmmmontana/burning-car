@@ -7,7 +7,7 @@ import { PostgresTypeOrmOptionsFactory } from './infrastructure/postgres.config'
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: ['.env', 'default.env'],
+      envFilePath: ['.env'],
     }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
