@@ -1,0 +1,25 @@
+services:
+  bc-postgres:
+    image: postgres:latest
+    container_name: bc-postgres
+    networks:
+      - bc-network
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    env_file:
+      - default.env
+      - .env
+    volumes:
+      - bc-pg-data:/data/postgres
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+networks:
+  bc-network:
+    driver: bridge
+
+volumes:
+  bc-pg-data:
