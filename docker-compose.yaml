@@ -17,6 +17,22 @@ services:
       timeout: 3s
       retries: 5
 
+  bc-service:
+    container_name: bc-service
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    ports:
+      - "${SERVICE_PORT}:${SERVICE_PORT}"
+    env_file:
+      - default.env
+      - .env
+    depends_on:
+      bc-postgres:
+        condition: service_healthy
+    networks:
+      - bc-network
+
 networks:
   bc-network:
     driver: bridge
