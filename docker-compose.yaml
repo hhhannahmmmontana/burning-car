@@ -4,11 +4,10 @@ services:
     container_name: bc-postgres
     networks:
       - bc-network
+    env_file:
+      - .env
     ports:
       - "${POSTGRES_PORT}:5432"
-    env_file:
-      - default.env
-      - .env
     volumes:
       - bc-pg-data:/data/postgres
     healthcheck:
@@ -25,8 +24,10 @@ services:
     ports:
       - "${SERVICE_PORT}:${SERVICE_PORT}"
     env_file:
-      - default.env
       - .env
+    environment:
+      - POSTGRES_HOST=bc-postgres
+      - POSTGRES_PORT=5432
     depends_on:
       bc-postgres:
         condition: service_healthy
