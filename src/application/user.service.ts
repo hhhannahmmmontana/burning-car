@@ -25,7 +25,7 @@ export class UserService {
         const f = async (entityManager: EntityManager) => {
             const user = await this.findUser(username, entityManager);
             if (user == null) {
-                throw new BadRequestException();
+                throw new NotFoundException(`username: ${username}`);
             }
             return user;
         }
