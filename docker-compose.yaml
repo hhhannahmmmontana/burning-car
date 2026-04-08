@@ -33,6 +33,19 @@ services:
         condition: service_healthy
     networks:
       - bc-network
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: bc-pgadmin
+    restart: always
+    ports:
+      - "5433:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: user@example.com
+      PGADMIN_DEFAULT_PASSWORD: postgres
+    volumes:
+      - bc-pgadmin-data:/var/lib/pgadmin
+    networks:
+      - bc-network
 
 networks:
   bc-network:
@@ -40,3 +53,4 @@ networks:
 
 volumes:
   bc-pg-data:
+  bc-pgadmin-data:
