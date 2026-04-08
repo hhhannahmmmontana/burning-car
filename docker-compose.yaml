@@ -16,23 +16,23 @@ services:
       timeout: 3s
       retries: 5
 
-  bc-service:
-    container_name: bc-service
-    build:
-      context: .
-      dockerfile: ./Dockerfile
-    ports:
-      - "${SERVICE_PORT}:${SERVICE_PORT}"
-    env_file:
-      - .env
-    environment:
-      - POSTGRES_HOST=bc-postgres
-      - POSTGRES_PORT=5432
-    depends_on:
-      bc-postgres:
-        condition: service_healthy
-    networks:
-      - bc-network
+  # bc-service:
+  #   container_name: bc-service
+  #   build:
+  #     context: .
+  #     dockerfile: ./Dockerfile
+  #   ports:
+  #     - "${SERVICE_PORT}:${SERVICE_PORT}"
+  #   env_file:
+  #     - .env
+  #   environment:
+  #     - POSTGRES_HOST=bc-postgres
+  #     - POSTGRES_PORT=5432
+  #   depends_on:
+  #     bc-postgres:
+  #       condition: service_healthy
+  #   networks:
+  #     - bc-network
 
   pgadmin:
     image: dpage/pgadmin4

@@ -15,8 +15,8 @@ export class Joke extends Signed {
     tags: Tag[];
 
     @Column()
-    rating: number;
+    rating: number = 0;
 
     @Column()
-    ratesAmount: number;
+    ratesAmount: number = 0;
 }

@@ -1,4 +1,4 @@
-import { Column, CreateDateColumn, ManyToOne, Repository } from "typeorm";
+import { Column, CreateDateColumn, Entity, ManyToOne, Repository } from "typeorm";
 import { User } from "./user.entity";
 import { Signature } from 'src/domain/signature';
 
@@ -6,10 +6,10 @@ export abstract class Signed {
     @ManyToOne(() => User, { nullable: true })
     author: User | null;
 
-    @Column({ nullable: true })
+    @Column({ type: 'varchar', nullable: true })
     authorIPv4: string | null;
 
-    @Column({ nullable: true })
+    @Column({ type: 'varchar', nullable: true })
     authorIPv6: string | null;
 
     @CreateDateColumn()

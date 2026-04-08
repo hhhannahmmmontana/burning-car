@@ -1,0 +1,122 @@
+import { Body, Controller, Get, Post, Param, Query, Req, ParseIntPipe } from "@nestjs/common";
+import { JokeService } from "src/application/services/joke.service";
+import { SearchJokesDto } from "../dto/jokes/search-jokes.request.dto";
+import { MarkFavouriteDto } from "../dto/jokes/mark-favourite.request.dto";
+import { createSignature } from "src/domain/signature";
+import * as express from 'express';
+import { Joke } from "src/domain/entities/joke.entity";
+import { PaginatedResponse } from "src/domain/paginated-response";
+import { ApiOperation, ApiResponse, ApiTags, ApiParam, ApiQuery } from "@nestjs/swagger";
+import { JokeResponseDto } from "../dto/jokes/joke.response.dto";
+import { CreateJokeRequestDto } from "../dto/jokes/create-joke.request.dto";
+
+@ApiTags("Jokes")
+@Controller("jokes")
+export class JokesController {
+    constructor(private readonly jokesService: JokeService) {}
+
+    @Post()
+    @ApiOperation({ 
+        summary: 'Создать новую шутку'
+    })
+    @ApiResponse({ 
+        status: 201, 
+        description: 'Шутка успешно создана',
+        type: Joke
+    })
+    @ApiResponse({ 
+        status: 404, 
+        description: 'Пользователь не найден',
+        schema: {
+            example: {
+                statusCode: 404,
+                message: 'username: {username}',
+                error: 'Not Found'
+            }
+        }
+    })
+    create(@Body() dto: CreateJokeRequestDto, @Req() req: express.Request): Promise<Joke> {
+        return this.jokesService.createJoke(dto.text, dto.tags, createSignature(dto.username, req));
+    }
+
+    @Get(':id')
+    @ApiOperation({ 
+        summary: 'Получить шутку по ID'
+    })
+    @ApiParam({ 
+        name: 'id', 
+        description: 'ID шутки', 
+        type: Number,
+        example: 1
+    })
+    @ApiResponse({ 
+        status: 200, 
+        description: 'Шутка найдена',
+        type: Joke
+    })
+    @ApiResponse({ 
+        status: 404, 
+        description: 'Шутка не найдена'
+    })
+    getJoke(@Param('id', ParseIntPipe) id: number): Promise<Joke> {
+        return this.jokesService.getJokeOrThrow(id);
+    }
+
+    @Get()
+    @ApiOperation({ 
+        summary: 'Поиск шуток',
+        description: 'Поиск с пагинацией, фильтрацией по тегам и тексту'
+    })
+    @ApiQuery({ name: 'pageSize', description: 'Размер страницы', type: Number, example: 10 })
+    @ApiQuery({ name: 'token', description: 'Токен пагинации', required: false, type: String })
+    @ApiQuery({ name: 'isFavourites', description: 'Только избранные', required: false, type: Boolean })
+    @ApiQuery({ name: 'tags', description: 'Фильтр по тегам', required: false, type: [String], example: ['программирование'] })
+    @ApiQuery({ name: 'search', description: 'Поиск по тексту', required: false, type: String })
+    @ApiQuery({ name: 'username', description: 'Имя пользователя', required: false, type: String })
+    @ApiResponse({ 
+        status: 200, 
+        description: 'Список шуток'
+    })
+    async searchJokes(
+        @Query() dto: SearchJokesDto,
+        @Req() req: express.Request
+    ): Promise<PaginatedResponse<JokeResponseDto>> {
+        const res = await this.jokesService.searchJokes(
+            dto.pageSize,
+            dto.token ?? null,
+            dto.isFavourites ?? false,
+            dto.tags ?? [],
+            dto.search ?? null,
+            createSignature(dto.username, req)
+        );
+        return {
+            token: res.token,
+            value: res.value.map(it => JokeResponseDto.fromEntity(it))
+        };
+    }
+
+    @Post(':id/favourite')
+    @ApiOperation({ 
+        summary: 'Добавить шутку в избранное'
+    })
+    @ApiParam({ 
+        name: 'id', 
+        description: 'ID шутки', 
+        type: Number,
+        example: 1
+    })
+    @ApiResponse({ 
+        status: 201, 
+        description: 'Шутка добавлена в избранное'
+    })
+    @ApiResponse({ 
+        status: 404, 
+        description: 'Шутка или пользователь не найден'
+    })
+    markFavourite(
+        @Param('id', ParseIntPipe) id: number,
+        @Body() dto: MarkFavouriteDto
+    ): Promise<void> {
+        return this.jokesService.markFavourite(id, dto.username);
+    }
+}

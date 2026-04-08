@@ -4,17 +4,16 @@ import { Signature } from "src/domain/signature";
 import { DataSource, EntityManager } from "typeorm";
 import { TagService } from "./tags.service";
 import { UserService } from "./user.service";
-import { PaginationService } from "./pagination.service";
 import { Favourite } from "src/domain/entities/favourite.entity";
 import { PaginatedResponse } from "src/domain/paginated-response";
+import { decodeToken, encodeToken } from "../pagination";
 
 @Injectable()
 export class JokeService {
 	constructor(
 		private readonly dataSource: DataSource,
 		private readonly tagService: TagService,
-		private readonly userService: UserService,
-		private readonly paginationService: PaginationService
+		private readonly userService: UserService
 	) {}
 
 	async createJoke(
@@ -27,6 +26,7 @@ export class JokeService {
 			const user = await this.userService.findUser(signature.username, entityManager);
 			const joke = new Joke();
 			joke.text = text;
+			joke.tags = [];
 			for (let tag of tags) {
 				joke.tags.push(await this.tagService.findOrCreateTag(tag, user, signature, entityManager));
 			}
@@ -62,11 +62,11 @@ export class JokeService {
 		const f = async (entityManager: EntityManager) => {
 			const user = await this.userService.findUser(signature.username, entityManager);
 			const filteredTags = await this.tagService.filterNonExistingTags(tags, entityManager);
-			const lastId = this.paginationService.decodeToken(token);
+			const lastId = decodeToken(token);
 			const query = entityManager.createQueryBuilder(Joke, 'joke')
 				.leftJoinAndSelect('joke.tags', 'tag')
 				.orderBy('joke.id', 'ASC')
-				.take(pageSize);
+				.take(pageSize + 1);
 
 			if (lastId !== null) {
 				query.where('joke.id > :lastId', { lastId });
@@ -77,7 +77,7 @@ export class JokeService {
 				query.innerJoin(
 					Favourite,
 					'favourite',
-					'favourite.jokeId = joke.id AND favourite.userId = (SELECT u.id FROM user u WHERE u.username = :username)',
+					'favourite.jokeId = joke.id AND favourite.userUsername = :username',
 					{ username }
 				);
 			}
@@ -94,9 +94,11 @@ export class JokeService {
 			}
 
 			const jokes = await query.getMany();
-			const nextToken = jokes.length === pageSize
-				? this.paginationService.encodeToken(jokes[jokes.length - 1].id)
-				: null;
+			let nextToken: string | null = null;
+			if (jokes.length > pageSize) {
+				nextToken = encodeToken(jokes[pageSize - 1].id);
+				jokes.pop();
+			}
 
 			return {
 				token: nextToken,
@@ -116,7 +118,7 @@ export class JokeService {
 			let fav = new Favourite();
 			fav.user = user;
 			fav.joke = await this.getJokeOrThrow(jokeId);
-			entityManager.save(new Favourite())
+			entityManager.save(fav)
 		};
 		return entityManager ? f(entityManager) : this.dataSource.transaction(f);
 	}

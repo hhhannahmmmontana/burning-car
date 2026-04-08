@@ -29,7 +29,7 @@ export class TagService {
         return entityManager ? f(entityManager) : this.dataSource.transaction(f);
     }
 
-    async filterExistingTags(
+    async filterNonExistingTags(
         tags: string[],
         entityManager?: EntityManager
     ): Promise<string[]> {

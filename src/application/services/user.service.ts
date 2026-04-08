@@ -1,7 +1,9 @@
-import { BadRequestException, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import * as bcrypt from 'bcrypt';
 import { User } from "src/domain/entities/user.entity";
 import { DataSource, EntityManager } from "typeorm";
 
+@Injectable()
 export class UserService {
     constructor(
         private dataSource: DataSource
@@ -29,6 +31,26 @@ export class UserService {
             }
             return user;
         }
+        return entityManager ? f(entityManager) : this.dataSource.transaction(f);
+    }
+
+    async createUser(
+        username: string,
+        password: string,
+        entityManager?: EntityManager
+    ) {
+        const f = async (entityManager: EntityManager) => {
+            if (username.length < 3) {
+                throw new BadRequestException("Too short username");
+            }
+            if (password.length < 8) {
+                throw new BadRequestException("Too short password");
+            }
+            const user = new User();
+            user.username = username;
+            user.passwordHash = await bcrypt.hash(password, 10); 
+            return entityManager.save(user);
+        };
         return entityManager ? f(entityManager) : this.dataSource.transaction(f);
     }
 }
