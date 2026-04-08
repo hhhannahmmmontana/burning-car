@@ -1,21 +1,32 @@
-import { ApiProperty } from "@nestjs/swagger";
+// dto/create-joke.request.dto.ts
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { IsString, IsArray, IsOptional, MinLength, MaxLength } from "class-validator";
 
 export class CreateJokeRequestDto {
     @ApiProperty({
         description: "Текст анекдота",
         example: "Сел медведь в машину и сгорел"
     })
-    public text: string = "";
+    @IsString()
+    @MinLength(10)
+    @MaxLength(2000)
+    text: string = "";
 
     @ApiProperty({
         description: "Теги",
-        example: ["Смешно", "Медведь"]
+        example: ["Смешно", "Медведь"],
+        type: [String]
     })
-    public tags: string[] = [];
+    @IsArray()
+    @IsString({ each: true })
+    tags: string[] = [];
 
-    @ApiProperty({
+    @ApiPropertyOptional({
         description: "Никнейм автора",
-        example: "volodyapokalipsis"
+        example: "volodyapokalipsis",
+        nullable: true
     })
-    public username: string = "";
+    @IsOptional()
+    @IsString()
+    username?: string | null;
 }

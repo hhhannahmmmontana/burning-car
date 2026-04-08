@@ -36,7 +36,7 @@ export class JokesController {
         }
     })
     create(@Body() dto: CreateJokeRequestDto, @Req() req: express.Request): Promise<Joke> {
-        return this.jokesService.createJoke(dto.text, dto.tags, createSignature(dto.username, req));
+        return this.jokesService.createJoke(dto.text, dto.tags, createSignature(dto.username ?? null, req));
     }
 
     @Get(':id')

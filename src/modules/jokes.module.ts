@@ -6,6 +6,7 @@ import { JokesController } from "src/presentation/controllers/jokes.controller";
 import { TagsModule } from "./tags.module";
 import { UsersModule } from "./users.module";
 import { JokesResolver } from "src/application/graphql/resolvers/jokes.resolver";
+import { BffModule } from "./bff.module";
 
 @Module({
     imports: [
@@ -15,5 +16,6 @@ import { JokesResolver } from "src/application/graphql/resolvers/jokes.resolver"
     ],
     providers: [JokeService, JokesResolver],
     controllers: [JokesController],
+    exports: [JokeService]
 })
 export class JokesModule {}

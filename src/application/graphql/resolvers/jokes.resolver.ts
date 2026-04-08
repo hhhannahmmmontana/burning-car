@@ -43,7 +43,7 @@ export class JokesResolver {
 
     @Query(() => JokeType, { name: 'joke' })
     async getJoke(@Args('id', { type: () => Int }) id: number): Promise<JokeType> {
-        const joke = await this.jokeService.getJokeOrThrow(id);
+        const joke = await this.jokeService.jo(id);
         return {
             id: joke.id,
             text: joke.text,
