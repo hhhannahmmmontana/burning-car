@@ -33,6 +33,7 @@ services:
         condition: service_healthy
     networks:
       - bc-network
+
   pgadmin:
     image: dpage/pgadmin4
     container_name: bc-pgadmin
