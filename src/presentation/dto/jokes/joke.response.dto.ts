@@ -30,14 +30,6 @@ export class JokeResponseDto {
 
     @ApiProperty()
     @Expose()
-    authorIpv4: string | null = null;
-
-    @ApiProperty()
-    @Expose()
-    authorIpv6: string | null = null;
-
-    @ApiProperty()
-    @Expose()
     createdAt: Date = new Date();
 
     public static fromEntity(jokeEntity: Joke): JokeResponseDto {
@@ -49,8 +41,6 @@ export class JokeResponseDto {
         response.ratesAmount = jokeEntity.ratesAmount;
         response.author = jokeEntity.author?.username ?? null;
         response.createdAt = jokeEntity.createdAt;
-        response.authorIpv4 = jokeEntity.authorIPv4;
-        response.authorIpv6 = jokeEntity.authorIPv6;
         return response;
     }
 }

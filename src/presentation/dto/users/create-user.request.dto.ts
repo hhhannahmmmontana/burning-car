@@ -4,7 +4,7 @@ import { IsString, MinLength, MaxLength } from 'class-validator';
 export class CreateUserRequestDto {
     @ApiProperty({
         description: 'Имя пользователя',
-        example: 'ivan',
+        example: 'volodyapokalipsis',
         minLength: 3,
         maxLength: 50
     })

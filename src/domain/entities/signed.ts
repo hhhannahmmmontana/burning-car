@@ -7,17 +7,17 @@ export abstract class Signed {
     author: User | null;
 
     @Column({ type: 'varchar', nullable: true })
-    authorIPv4: string | null;
+    authorIpv4: string | null;
 
     @Column({ type: 'varchar', nullable: true })
-    authorIPv6: string | null;
+    authorIpv6: string | null;
 
     @CreateDateColumn()
     createdAt: Date;
 
     sign(signature: Signature, author: User | null) {
         this.author = author;
-        this.authorIPv4 = signature.authorIpv4;
-        this.authorIPv6 = signature.authorIpv6;
+        this.authorIpv4 = signature.authorIpv4;
+        this.authorIpv6 = signature.authorIpv6;
     }
 }

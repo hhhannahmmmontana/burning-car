@@ -12,4 +12,6 @@ export class Commentary extends Signed {
 
     @Column()
     text: string
+
+    public static MAX_LENGTH = 1000;
 }

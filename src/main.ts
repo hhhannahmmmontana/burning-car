@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { DataSource } from 'typeorm';
 
 async function bootstrap() {
 	const app = await NestFactory.create(AppModule);
@@ -15,7 +16,7 @@ async function bootstrap() {
 	}));
 	const logger = new Logger('NestApplication');
 	const port = process.env.SERVICE_PORT ?? 3000;
-	logger.log(`Server is running on port ${port}`);
+	logger.log(`Server will be running on port ${port}`);
 
 	const config = new DocumentBuilder()
         .setTitle('Jokes API')
@@ -26,6 +27,14 @@ async function bootstrap() {
 
 	const document = SwaggerModule.createDocument(app, config);
     SwaggerModule.setup('api', app, document); 
+	logger.log("Swagger doc created on /api");
+
+	const dataSource = app.get(DataSource);
+	logger.log("Synchronizing entities");
+	await dataSource.synchronize();
+	console.log('Entities found:', dataSource.entityMetadatas.map(e => e.tableName));
+	logger.log("Running migrations");
+    await dataSource.runMigrations();
 
 	await app.listen(port);
 }

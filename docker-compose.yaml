@@ -18,6 +18,9 @@ services:
 
   bc-redis:
     image: redis:latest
+    container_name: bc-redis
+    networks:
+      - bc-network
     ports:
       - "${REDIS_PORT}:6379"
     command: redis-server --appendonly yes

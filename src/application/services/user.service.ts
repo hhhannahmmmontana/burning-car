@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import * as bcrypt from 'bcrypt';
 import { User } from "src/domain/entities/user.entity";
 import { DataSource, EntityManager } from "typeorm";
@@ -20,7 +20,7 @@ export class UserService {
         return entityManager ? f(entityManager) : this.dataSource.transaction(f);
     }
 
-    async findUserOrThrow(
+    async getUserOrThrow(
         username: string | null,
         entityManager?: EntityManager
     ): Promise<User> {
@@ -45,6 +45,9 @@ export class UserService {
             }
             if (password.length < 8) {
                 throw new BadRequestException("Too short password");
+            }
+            if (await entityManager.exists(User, { where: { username: username } })) {
+                throw new ConflictException(`username: ${username}`);
             }
             const user = new User();
             user.username = username;

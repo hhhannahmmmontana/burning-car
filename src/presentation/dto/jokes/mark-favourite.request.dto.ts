@@ -4,7 +4,7 @@ import { IsString } from 'class-validator';
 export class MarkFavouriteDto {
     @ApiProperty({
         description: 'Имя пользователя',
-        example: 'Вася'
+        example: 'volodyapokalipsis'
     })
     @IsString()
     username: string;

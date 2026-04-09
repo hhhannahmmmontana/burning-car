@@ -42,7 +42,7 @@ export class UsersController {
         name: 'username', 
         description: 'Имя пользователя', 
         type: String,
-        example: 'ivan'
+        example: 'volodyapokalipsis'
     })
     @ApiResponse({ 
         status: 200, 
@@ -61,7 +61,7 @@ export class UsersController {
         }
     })
     async getUser(@Param('username') username: string): Promise<UserResponseDto> {
-        const user = await this.userService.findUserOrThrow(username);
+        const user = await this.userService.getUserOrThrow(username);
         return UserResponseDto.fromEntity(user);
     }
 }

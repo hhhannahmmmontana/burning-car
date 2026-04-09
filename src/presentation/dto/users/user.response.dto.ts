@@ -2,7 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import { User } from 'src/domain/entities/user.entity';
 
 export class UserResponseDto {
-    @ApiProperty({ example: 'ivan' })
+    @ApiProperty({ example: 'volodyapokalipsis' })
     username: string = "";
 
     @ApiProperty({ example: '2026-04-08T14:00:20.977Z' })
