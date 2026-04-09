@@ -10,6 +10,7 @@ import { decodeToken, encodeToken } from "../pagination";
 import { User } from "src/domain/entities/user.entity";
 import { Rating } from "src/domain/entities/rating.entity";
 import { Commentary } from "src/domain/entities/commentary.entity";
+import { UserJoke } from "../../domain/entities/user-joke.entity";
 
 @Injectable()
 export class JokeService {
@@ -23,33 +24,76 @@ export class JokeService {
         text: string,
         tags: string[],
         signature: Signature,
-        entityManager?: EntityManager
-    ): Promise<Joke> {
-        const f = async (entityManager: EntityManager) => {
+        em?: EntityManager
+    ): Promise<UserJoke> {
+        const f = async (em: EntityManager) => {
 			let user: User | null = null;
 			if (signature.username) {
-				user = await this.userService.getUserOrThrow(signature.username, entityManager);
+				user = await this.userService.getUserOrThrow(signature.username, em);
 			}
 
             const joke = new Joke();
             joke.text = text;
             joke.tags = [];
             for (let tag of tags) {
-                joke.tags.push(await this.tagService.findOrCreateTag(tag, user, signature, entityManager));
+                joke.tags.push(await this.tagService.findOrCreateTag(tag, user, signature, em));
             }
             joke.sign(signature, user);
-            const saved = await entityManager.save(joke);
-            return saved;
+            const saved = await em.save(joke);
+            return UserJoke.fromJokeUnauthorized(saved);
         };
-        return entityManager ? f(entityManager) : this.dataSource.transaction(f);
+        return em ? f(em) : this.dataSource.transaction(f);
     }
 
-	async getJokeOrThrow(
+	async getJoke(
 		jokeId: number,
-		entityManager?: EntityManager
+		username: string | null,
+		em?: EntityManager
+	): Promise<UserJoke> {
+		const f = async (em : EntityManager) => {
+			const joke = await em.findOne(Joke, {
+				where: { id: jokeId },
+				relations: ['tags', 'author']
+			});
+			
+			if (joke == null) {
+				throw new NotFoundException(`jokeId: ${jokeId}`);
+			}
+
+			if (!username) {
+				return UserJoke.fromJokeUnauthorized(joke);
+			}
+
+			const favourite = await em.findOne(Favourite, {
+				where: {
+					user: { username },
+					joke: { id: jokeId }
+				}
+			});
+
+			const rating = await em.findOne(Rating, {
+				where: {
+					user: { username },
+					joke: { id: jokeId }
+				}
+			});
+
+			return UserJoke.fromJoke(
+				joke,
+				favourite != null,
+				rating?.score ?? null
+			);
+		};
+		
+		return em ? f(em) : this.dataSource.transaction(f);
+	}
+
+	private async getJokeOrThrow(
+		jokeId: number,
+		em?: EntityManager
 	): Promise<Joke> {
-		const f = async (entityManager: EntityManager) => {
-			const joke = await entityManager.findOne(
+		const f = async (em: EntityManager) => {
+			const joke = await em.findOne(
 				Joke, {
 					where: { id: jokeId },
 					relations: ['tags', 'author']
@@ -61,7 +105,7 @@ export class JokeService {
 			}
 			return joke;
 		};
-		return entityManager ? f(entityManager) : this.dataSource.transaction(f);
+		return em ? f(em) : this.dataSource.transaction(f);
 	}
 
 	async searchJokes(
@@ -71,14 +115,16 @@ export class JokeService {
 		tags: string[],
 		search: string | null,
 		signature: Signature,
-		entityManager?: EntityManager
-	): Promise<PaginatedResponse<Joke>> {
-		const f = async (entityManager: EntityManager) => {
-			const user = await this.userService.findUser(signature.username, entityManager);
+		em?: EntityManager
+	): Promise<PaginatedResponse<UserJoke>> {
+		const f = async (em: EntityManager) => {
+			const user = await this.userService.findUser(signature.username, em);
 			const lastId = decodeToken(token);
-			const query = entityManager
+			const query = em
 				.createQueryBuilder(Joke, 'joke')
-				.orderBy('joke.id', 'ASC')
+				.leftJoinAndSelect('joke.author', 'author')
+				.leftJoinAndSelect('joke.tags', 'tag')
+				.orderBy('joke.id', 'DESC')
 				.take(pageSize + 1);
 
 			if (lastId !== null) {
@@ -100,8 +146,6 @@ export class JokeService {
 				);
 			}
 
-			query.leftJoinAndSelect('joke.tags', 'tag')
-
 			if (tags.length > 0) {
 				query.andWhere('tag.name IN (:...tags)', { tags: tags });
 			}
@@ -120,19 +164,18 @@ export class JokeService {
 						OR to_tsvector('english', joke.text) @@ to_tsquery('english', :search))`,
 						{ search: tsQuery }
         			)
-					.orderBy('joke.rates_amount', 'DESC')
-					.addOrderBy('joke.id', 'ASC');
-			}
-
-			query.leftJoinAndSelect('joke.author', 'author')
-
-			const jokeIds = await query.getMany();
-
-			if (jokeIds.length === 0) {
-				return { token: null, value: [] };
+					.orderBy('joke.ratesAmount', 'DESC')
+					.addOrderBy('joke.id', 'DESC');
 			}
 
 			const jokes = await query.getMany();
+
+			if (jokes.length == 0) {
+				return {
+					token: null,
+					value: []
+				}
+			}
 
 			let nextToken: string | null = null;
 			if (jokes.length > pageSize) {
@@ -140,22 +183,55 @@ export class JokeService {
 				jokes.pop();
 			}
 
+			if (!user) {
+            	return {
+               		token: nextToken,
+					value: jokes.map(UserJoke.fromJokeUnauthorized)
+				};
+			}
+
+			const jokeIds = jokes.map(j => j.id);
+			
+			const favourites = await em
+				.createQueryBuilder(Favourite, 'fav')
+				.leftJoinAndSelect('fav.joke', 'joke')
+				.where('fav.user_username = :username', { username: user.username })
+				.andWhere('fav.joke_id IN (:...jokeIds)', { jokeIds })
+				.getMany();
+			
+			const favouriteJokeIds = new Set(favourites.map(f => f.joke.id));
+
+			const ratings = await em
+				.createQueryBuilder(Rating, 'rating')
+				.leftJoinAndSelect('rating.joke', 'joke')
+				.where('rating.user_username = :username', { username: user.username })
+				.andWhere('rating.joke_id IN (:...jokeIds)', { jokeIds })
+				.getMany();
+
+			const userRatingsMap = new Map<number, number>(ratings.map((r: Rating) => [r.joke.id, r.score]));
+
 			return {
 				token: nextToken,
-				value: jokes,
+				value: jokes.map(
+					joke => UserJoke.fromJoke(
+						joke,
+						favouriteJokeIds.has(joke.id),
+						userRatingsMap.get(joke.id) ?? null
+					)
+				)
 			};
 		};
-		return entityManager ? f(entityManager) : this.dataSource.transaction(f);
+		return em ? f(em) : this.dataSource.transaction(f);
 	}
 
 	async addToFavourites(
 		jokeId: number,
 		username: string,
-		entityManager?: EntityManager
+		em?: EntityManager
 	) {
-		const f = async (entityManager: EntityManager) => {
-			const user = await this.userService.getUserOrThrow(username, entityManager);
-			const existing = await entityManager.findOne(
+		const f = async (em: EntityManager) => {
+			const user = await this.userService.getUserOrThrow(username, em);
+			const existing = await em.findOne(
 				Favourite, {
 					where: {
 						user: { username: user.username},
@@ -167,22 +243,22 @@ export class JokeService {
 				let fav = new Favourite();
 				fav.user = user;
 				fav.joke = await this.getJokeOrThrow(jokeId);
-				await entityManager.save(fav);
+				await em.save(fav);
 			} else {
 				throw new ConflictException(`jokeId: ${jokeId}, username: ${username}`);
 			}
 		};
-		return entityManager ? f(entityManager) : this.dataSource.transaction(f);
+		return em ? f(em) : this.dataSource.transaction(f);
 	}
 
 	async removeFromFavourites(
 		jokeId: number,
 		username: string,
-		entityManager?: EntityManager
+		em?: EntityManager
 	) {
-		const f = async (entityManager: EntityManager) => {
-			const user = await this.userService.getUserOrThrow(username, entityManager);
-			const existing = await entityManager.findOne(
+		const f = async (em: EntityManager) => {
+			const user = await this.userService.getUserOrThrow(username, em);
+			const existing = await em.findOne(
 				Favourite, {
 					where: {
 						user: { username: user.username},
@@ -191,22 +267,22 @@ export class JokeService {
 				}
 			);
 			if (existing != null) {
-				await entityManager.remove(existing);
+				await em.remove(existing);
 			}
 		};
-		return entityManager ? f(entityManager) : this.dataSource.transaction(f);
+		return em ? f(em) : this.dataSource.transaction(f);
 	}
 
 	async rateJoke(
 		jokeId: number,
 		rating: number,
 		username: string,
-		entityManager?: EntityManager
+		em?: EntityManager
 	) {
-		const f = async (entityManager: EntityManager) => {
-			const joke = await this.getJokeOrThrow(jokeId, entityManager);
-			const user = await this.userService.getUserOrThrow(username, entityManager);
-			let ratingEntity = await entityManager.findOne(
+		const f = async (em: EntityManager) => {
+			const joke = await this.getJokeOrThrow(jokeId, em);
+			const user = await this.userService.getUserOrThrow(username, em);
+			let ratingEntity = await em.findOne(
 				Rating, {
 					where: {
 						user: { username: user.username},
@@ -220,41 +296,41 @@ export class JokeService {
 				ratingEntity.user = user;
 			}
 			ratingEntity.score = rating;
-			await entityManager.save(ratingEntity);
+			await em.save(ratingEntity);
 		};
-		return entityManager ? f(entityManager) : this.dataSource.transaction(f);
+		return em ? f(em) : this.dataSource.transaction(f);
 	}
 
 	async comment(
 		jokeId: number,
 		text: string,
 		signature: Signature,
-		entityManager?: EntityManager
+		em?: EntityManager
 	): Promise<Commentary> {
-		const f = async (entityManager: EntityManager) => {
+		const f = async (em: EntityManager) => {
 			if (text.length > Commentary.MAX_LENGTH) {
 				throw new PayloadTooLargeException("text");
 			}
-			const joke = await this.getJokeOrThrow(jokeId, entityManager);
-			const user = signature.username ? await this.userService.getUserOrThrow(signature.username, entityManager) : null;
+			const joke = await this.getJokeOrThrow(jokeId, em);
+			const user = signature.username ? await this.userService.getUserOrThrow(signature.username, em) : null;
 			const comment = new Commentary();
 			comment.joke = joke;
 			comment.text = text;
 			comment.sign(signature, user);
-			return await entityManager.save(comment);
+			return await em.save(comment);
 		};
-		return entityManager ? f(entityManager) : this.dataSource.transaction(f);
+		return em ? f(em) : this.dataSource.transaction(f);
 	}
 
 	async getComments(
 		jokeId: number,
 		pageSize: number,
 		token: string | null,
-		entityManager?: EntityManager
+		em?: EntityManager
 	): Promise<PaginatedResponse<Commentary>> {
-		const f = async (entityManager: EntityManager) => {
-			await this.getJokeOrThrow(jokeId, entityManager);
-			const query = entityManager
+		const f = async (em: EntityManager) => {
+			await this.getJokeOrThrow(jokeId, em);
+			const query = em
 				.createQueryBuilder(Commentary, 'commentary')
 				.leftJoinAndSelect('commentary.author', 'author')
 				.where('commentary.joke.id = :jokeId', { jokeId })
@@ -278,6 +354,6 @@ export class JokeService {
 				value: comments,
 			};
 		};
-		return entityManager ? f(entityManager) : this.dataSource.transaction(f);
+		return em ? f(em) : this.dataSource.transaction(f);
 	}
 }

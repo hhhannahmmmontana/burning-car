@@ -13,9 +13,11 @@ import { RateJokeRequestDto } from "../dto/jokes/rate-joke.request.dto";
 import { CreateCommentRequestDto } from "../dto/jokes/create-comment.request.dto";
 import { CommentResponseDto } from "../dto/jokes/comment.response.dto";
 import { GetCommentsRequestDto } from "../dto/jokes/get-comments.request.dto";
+import { UserJoke } from "src/domain/entities/user-joke.entity";
+import { GetJokeRequestDto } from "../dto/jokes/get-joke.request.dto";
 
 @ApiTags("Jokes")
-@Controller("jokes")
+@Controller("jk")
 export class JokesController {
     constructor(private readonly jokesService: JokeService) {}
 
@@ -26,7 +28,7 @@ export class JokesController {
     @ApiResponse({ 
         status: 201, 
         description: 'Шутка успешно создана',
-        type: Joke
+        type: UserJoke
     })
     @ApiResponse({ 
         status: 404, 
@@ -58,14 +60,19 @@ export class JokesController {
     @ApiResponse({ 
         status: 200, 
         description: 'Шутка найдена',
-        type: Joke
+        type: UserJoke
     })
     @ApiResponse({ 
         status: 404, 
         description: 'Шутка не найдена'
     })
-    async getJoke(@Param('id', ParseIntPipe) id: number): Promise<JokeResponseDto> {
-        return JokeResponseDto.fromEntity(await this.jokesService.getJokeOrThrow(id));
+    async getJoke(
+        @Param('id', ParseIntPipe)
+        id: number,
+        @Body()
+        dto: GetJokeRequestDto
+    ): Promise<JokeResponseDto> {
+        return JokeResponseDto.fromEntity(await this.jokesService.getJoke(id, dto.username));
     }
 
     @Get()
@@ -188,7 +195,7 @@ export class JokesController {
         return await this.jokesService.rateJoke(id, dto.rating, dto.username)
     }
 
-    @Post(':id/comments')
+    @Post(':id/comment')
     @ApiOperation({ 
         summary: 'Добавить комментарий к шутке'
     })
@@ -225,12 +232,12 @@ export class JokesController {
         );
     }
 
-    @Get(':id/comments')
+    @Get(':jokeId/comments')
     @ApiOperation({ 
         summary: 'Получить комментарии к шутке'
     })
     @ApiParam({ 
-        name: 'id', 
+        name: 'jokeId', 
         description: 'ID шутки', 
         type: Number,
         example: 1
@@ -256,11 +263,11 @@ export class JokesController {
         description: 'Шутка не найдена'
     })
     async getComments(
-        @Param('id', ParseIntPipe) id: number,
+        @Param('jokeId', ParseIntPipe) jokeId: number,
         @Query() dto: GetCommentsRequestDto
     ): Promise<PaginatedResponse<CommentResponseDto>> {
         const res = await this.jokesService.getComments(
-            id,
+            jokeId,
             dto.pageSize,
             dto.token ?? null
         );
