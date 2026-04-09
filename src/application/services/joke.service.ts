@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, PayloadTooLargeException } from "@nestjs/common";
+import { ConflictException, Injectable, NotFoundException, PayloadTooLargeException } from "@nestjs/common";
 import { Joke } from "src/domain/entities/joke.entity";
 import { Signature } from "src/domain/signature";
 import { DataSource, EntityManager } from "typeorm";
@@ -148,7 +148,7 @@ export class JokeService {
 		return entityManager ? f(entityManager) : this.dataSource.transaction(f);
 	}
 
-	async toggleFavourite(
+	async addToFavourites(
 		jokeId: number,
 		username: string,
 		entityManager?: EntityManager
@@ -169,7 +169,29 @@ export class JokeService {
 				fav.joke = await this.getJokeOrThrow(jokeId);
 				await entityManager.save(fav);
 			} else {
-				await entityManager.delete(Favourite, existing);
+				throw new ConflictException(`jokeId: ${jokeId}, username: ${username}`);
+			}
+		};
+		return entityManager ? f(entityManager) : this.dataSource.transaction(f);
+	}
+
+	async removeFromFavourites(
+		jokeId: number,
+		username: string,
+		entityManager?: EntityManager
+	) {
+		const f = async (entityManager: EntityManager) => {
+			const user = await this.userService.getUserOrThrow(username, entityManager);
+			const existing = await entityManager.findOne(
+				Favourite, {
+					where: {
+						user: { username: user.username},
+						joke: { id: jokeId }
+					}
+				}
+			);
+			if (existing != null) {
+				await entityManager.remove(existing);
 			}
 		};
 		return entityManager ? f(entityManager) : this.dataSource.transaction(f);

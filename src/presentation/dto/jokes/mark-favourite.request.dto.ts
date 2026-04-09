@@ -7,5 +7,5 @@ export class MarkFavouriteDto {
         example: 'volodyapokalipsis'
     })
     @IsString()
-    username: string;
+    username: string = "";
 }

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Param, Query, Req, ParseIntPipe } from "@nestjs/common";
+import { Body, Controller, Get, Post, Param, Query, Req, ParseIntPipe, Delete, HttpCode } from "@nestjs/common";
 import { JokeService } from "src/application/services/joke.service";
 import { SearchJokesDto } from "../dto/jokes/search-jokes.request.dto";
 import { MarkFavouriteDto } from "../dto/jokes/mark-favourite.request.dto";
@@ -106,7 +106,7 @@ export class JokesController {
         summary: 'Добавить шутку в избранное'
     })
     @ApiParam({ 
-        name: 'id', 
+        name: 'id',
         description: 'ID шутки', 
         type: Number,
         example: 1
@@ -119,11 +119,41 @@ export class JokesController {
         status: 404, 
         description: 'Шутка или пользователь не найден'
     })
-    markFavourite(
+    @ApiResponse({ 
+        status: 409, 
+        description: 'Шутка уже в избранном'
+    })
+    addToFavourites(
         @Param('id', ParseIntPipe) id: number,
         @Body() dto: MarkFavouriteDto
     ): Promise<void> {
-        return this.jokesService.toggleFavourite(id, dto.username);
+        return this.jokesService.addToFavourites(id, dto.username);
+    }
+
+    @Delete(':id/favourite')
+    @HttpCode(204)
+    @ApiOperation({ 
+        summary: 'Убрать шутку из избранного'
+    })
+    @ApiParam({ 
+        name: 'id',
+        description: 'ID шутки', 
+        type: Number,
+        example: 1
+    })
+    @ApiResponse({ 
+        status: 204, 
+        description: 'Шутка удалена из избранного'
+    })
+    @ApiResponse({ 
+        status: 404, 
+        description: 'Шутка или пользователь не найдены'
+    })
+    removeFromFavourites(
+        @Param('id', ParseIntPipe) id: number,
+        @Body() dto: MarkFavouriteDto
+    ): Promise<void> {
+        return this.jokesService.removeFromFavourites(id, dto.username);
     }
 
     @Post(':id/rate')
