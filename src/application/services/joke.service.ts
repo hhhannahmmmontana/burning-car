@@ -118,7 +118,10 @@ export class JokeService {
 		em?: EntityManager
 	): Promise<PaginatedResponse<UserJoke>> {
 		const f = async (em: EntityManager) => {
-			const user = await this.userService.findUser(signature.username, em);
+			let user: User | null = null;
+			if (signature.username != null) {
+				user = await this.userService.getUserOrThrow(signature.username, em);
+			}
 			const lastId = decodeToken(token);
 			const query = em
 				.createQueryBuilder(Joke, 'joke')

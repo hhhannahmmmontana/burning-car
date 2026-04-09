@@ -5,6 +5,7 @@ import { Joke } from "src/domain/entities/joke.entity";
 import { JokesController } from "src/presentation/controllers/jokes.controller";
 import { TagsModule } from "./tags.module";
 import { UsersModule } from "./users.module";
+import { JokesResolver } from "src/presentation/graphql/jokes.resolver";
 
 @Module({
     imports: [
@@ -12,7 +13,7 @@ import { UsersModule } from "./users.module";
         TagsModule,
         UsersModule
     ],
-    providers: [JokeService],
+    providers: [JokeService, JokesResolver],
     controllers: [JokesController],
     exports: [JokeService]
 })
