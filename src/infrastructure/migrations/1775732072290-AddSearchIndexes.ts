@@ -11,10 +11,34 @@ export class AddSearchIndexes1775732072290 implements MigrationInterface {
             `CREATE INDEX idx_joke_rates_id 
              ON joke (rates_amount DESC, id ASC)`
         );
+
+        await queryRunner.query(
+            `CREATE INDEX idx_tag_name 
+             ON tag (name)`
+        );
+
+        await queryRunner.query(
+            `CREATE INDEX idx_joke_tag_joke_id 
+             ON joke_tag (joke_id)`
+        );
+
+        await queryRunner.query(
+            `CREATE INDEX idx_joke_tag_tag_id 
+             ON joke_tag (tag_id)`
+        );
+
+        await queryRunner.query(
+            `CREATE INDEX idx_joke_tag_composite 
+             ON joke_tag (tag_id, joke_id)`
+        );
     }
 
     public async down(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query(`DROP INDEX idx_joke_text_fts_ru`);
-        await queryRunner.query(`DROP INDEX idx_joke_rates_id`);
+        await queryRunner.query(`DROP INDEX IF EXISTS idx_joke_text_fts_ru`);
+        await queryRunner.query(`DROP INDEX IF EXISTS idx_joke_rates_id`);
+        await queryRunner.query(`DROP INDEX IF EXISTS idx_tag_name`);
+        await queryRunner.query(`DROP INDEX IF EXISTS idx_joke_tag_joke_id`);
+        await queryRunner.query(`DROP INDEX IF EXISTS idx_joke_tag_tag_id`);
+        await queryRunner.query(`DROP INDEX IF EXISTS idx_joke_tag_composite`);
     }
 }

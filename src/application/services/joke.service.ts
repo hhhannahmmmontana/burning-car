@@ -11,17 +11,21 @@ import { User } from "src/domain/entities/user.entity";
 import { Rating } from "src/domain/entities/rating.entity";
 import { Commentary } from "src/domain/entities/commentary.entity";
 import { UserJoke } from "../../domain/entities/user-joke.entity";
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import * as CacheManager from "cache-manager";
+import { CacheService } from "./cache.service";
 
 @Injectable()
 export class JokeService {
+	private readonly INVALIDATIVE_PAGE_SIZES = [5, 10, 15];
+	private readonly POPULARITY_INVALIDATION_TRESHOLD = 100;
+
 	constructor(
 		private readonly dataSource: DataSource,
 		private readonly tagService: TagService,
 		private readonly userService: UserService,
-		@Inject(CACHE_MANAGER) private cacheManager: CacheManager.Cache,
-	) {}
+		private readonly cacheService: CacheService<PaginatedResponse<UserJoke>>
+	) {
+		cacheService.baseSection = "jokes"
+	}
 
 	async createJoke(
         text: string,
@@ -43,6 +47,7 @@ export class JokeService {
             }
             joke.sign(signature, user);
             const saved = await em.save(joke);
+			await this.invalidateCache(tags);
             return UserJoke.fromJokeUnauthorized(saved);
         };
         return em ? f(em) : this.dataSource.transaction(f);
@@ -112,6 +117,104 @@ export class JokeService {
 	}
 
 	async searchJokes(
+        pageSize: number,
+        token: string | null,
+        sortByPopularity: boolean,
+        isFavourites: boolean,
+        tags: string[],
+        search: string | null,
+        signature: Signature,
+        em?: EntityManager
+    ): Promise<PaginatedResponse<UserJoke>> {
+        if (this.shouldCachePopular(sortByPopularity, isFavourites, tags, search, token)) {
+            return this.getCachedPopular(pageSize, signature, em);
+        }
+
+        if (this.shouldCacheTags(sortByPopularity, tags, isFavourites, search, token)) {
+            return this.getCachedByTags(pageSize, sortByPopularity, tags[0], signature, em);
+        }
+
+        return this.executeSearch(pageSize, token, sortByPopularity, isFavourites, tags, search, signature, em);
+    }
+
+	private shouldCachePopular(
+        sortByPopularity: boolean,
+        isFavourites: boolean,
+        tags: string[],
+        search: string | null,
+        token: string | null
+    ): boolean {
+        return sortByPopularity 
+            && !isFavourites 
+            && tags.length === 0
+            && !search 
+            && !token;
+    }
+
+	private shouldCacheTags(
+		sortByPopularity: boolean,
+        tags: string[],
+        isFavourites: boolean,
+        search: string | null,
+		token: string | null
+    ): boolean {
+        return sortByPopularity
+			&& tags.length === 1
+			&& !isFavourites
+			&& !search
+			&& !token;
+    }
+
+	private async getCachedPopular(
+        pageSize: number,
+        signature: Signature,
+        em?: EntityManager
+    ): Promise<PaginatedResponse<UserJoke>> {
+        const key = this.cacheService.createKeyBuilder()
+			.addValue("popular")
+			.addSection(pageSize)
+			.build();
+
+        const cached = await this.cacheService.get(key);
+        if (cached) {
+            return cached;
+        }
+
+        const result = await this.executeSearch(
+            pageSize, null, true, false, [], null, signature, em
+        );
+
+        await this.cacheService.set(key, result, 300000);
+        return result;
+    }
+
+    async getCachedByTags(
+        pageSize: number,
+        sortByPopularity: boolean,
+        tag: string,
+        signature: Signature,
+        em?: EntityManager
+    ): Promise<PaginatedResponse<UserJoke>> {
+        const key = this.cacheService.createKeyBuilder()
+			.addValue("tags")
+			.addSection(tag)
+			.addSection(pageSize)
+			.build();
+
+        const cached = await this.cacheService.get(key);
+        if (cached) {
+            return cached;
+        }
+
+        const result = await this.executeSearch(
+            pageSize, null, sortByPopularity, false, [tag], null, signature, em
+        );
+
+        await this.cacheService.set(key, result, 120000);
+        return result;
+    }
+
+	private async executeSearch(
 		pageSize: number,
 		token: string | null,
 		sortByPopularity: boolean,
@@ -307,9 +410,36 @@ export class JokeService {
 				ratingEntity.user = user;
 			}
 			ratingEntity.score = rating;
+			await this.invalidateCache(joke.tags.map(it => it.name));
 			await em.save(ratingEntity);
 		};
 		return em ? f(em) : this.dataSource.transaction(f);
+	}
+
+	private async invalidatePopularCache() {
+		const key = this.cacheService.createKeyBuilder()
+			.addValue("popular")
+			.buildSection();
+
+		await Promise.all(
+			this.INVALIDATIVE_PAGE_SIZES.map(
+				pageSize => this.cacheService.invalidateValue(key, pageSize)
+			)
+		);
+	}
+
+	private async invalidateTagCache(tag: string) {
+		const key = this.cacheService.createKeyBuilder()
+			.addValue("tag")
+			.buildSection();
+		this.cacheService.invalidateValue(key, tag);
+	}
+
+	private async invalidateCache(tags: string[]) {
+		await this.invalidatePopularCache();
+		if (tags.length === 1) {
+			await this.invalidateTagCache(tags[0]);
+		}  
 	}
 
 	async comment(

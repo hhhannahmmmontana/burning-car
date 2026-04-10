@@ -8,6 +8,7 @@ import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { join } from 'path';
 import { CacheModule } from '@nestjs/cache-manager';
+import { redisStore } from 'cache-manager-ioredis-yet';
 
 @Module({
 	imports: [
@@ -26,6 +27,13 @@ import { CacheModule } from '@nestjs/cache-manager';
 		}),
 		CacheModule.register({
             isGlobal: true,
+			useFactory: async () => ({
+                store: await redisStore({
+                    host: process.env.REDIS_HOST || 'localhost',
+                    port: process.env.REDIS_PORT || 6379,
+                }),
+                ttl: 300000,
+            }),
             ttl: 60000,
             max: 100,
         }),
