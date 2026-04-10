@@ -22,7 +22,6 @@ export class JokesResolver {
         @Context() context: { req: express.Request, user?: UserDto }
     ): Promise<PaginatedJokeType> {
         const signature = createSignature(context.user?.username ?? null, context.req);
-
         const result = await this.jokeService.searchJokes(
             input.pageSize,
             input.token ?? null,

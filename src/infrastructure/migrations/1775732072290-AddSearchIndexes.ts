@@ -18,18 +18,18 @@ export class AddSearchIndexes1775732072290 implements MigrationInterface {
         );
 
         await queryRunner.query(
-            `CREATE INDEX idx_joke_tag_joke_id 
-             ON joke_tag (joke_id)`
+            `CREATE INDEX idx_joke_tags_tag_joke_id 
+             ON joke_tags_tag ("joke_id")`
         );
 
         await queryRunner.query(
-            `CREATE INDEX idx_joke_tag_tag_id 
-             ON joke_tag (tag_id)`
+            `CREATE INDEX idx_joke_tags_tag_tag_name 
+             ON joke_tags_tag ("tag_name")`
         );
 
         await queryRunner.query(
-            `CREATE INDEX idx_joke_tag_composite 
-             ON joke_tag (tag_id, joke_id)`
+            `CREATE INDEX idx_joke_tags_tag_composite 
+             ON joke_tags_tag ("tag_name", "joke_id")`
         );
     }
 
@@ -37,8 +37,8 @@ export class AddSearchIndexes1775732072290 implements MigrationInterface {
         await queryRunner.query(`DROP INDEX IF EXISTS idx_joke_text_fts_ru`);
         await queryRunner.query(`DROP INDEX IF EXISTS idx_joke_rates_id`);
         await queryRunner.query(`DROP INDEX IF EXISTS idx_tag_name`);
-        await queryRunner.query(`DROP INDEX IF EXISTS idx_joke_tag_joke_id`);
-        await queryRunner.query(`DROP INDEX IF EXISTS idx_joke_tag_tag_id`);
-        await queryRunner.query(`DROP INDEX IF EXISTS idx_joke_tag_composite`);
+        await queryRunner.query(`DROP INDEX IF EXISTS idx_joke_tags_tag_joke_id`);
+        await queryRunner.query(`DROP INDEX IF EXISTS idx_joke_tags_tag_tag_id`);
+        await queryRunner.query(`DROP INDEX IF EXISTS idx_joke_tags_tag_composite`);
     }
 }

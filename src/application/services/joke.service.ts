@@ -16,13 +16,13 @@ import { CacheService } from "./cache.service";
 @Injectable()
 export class JokeService {
 	private readonly INVALIDATIVE_PAGE_SIZES = [5, 10, 15];
-	private readonly POPULARITY_INVALIDATION_THRESHOLD = 100;
+	private readonly POPULARITY_INVALIDATION_THRESHOLD = 0;
 
 	constructor(
 		private readonly dataSource: DataSource,
 		private readonly tagService: TagService,
 		private readonly userService: UserService,
-		private readonly cacheService: CacheService<PaginatedResponse<UserJoke>>
+		private readonly cacheService: CacheService<PaginatedResponse<Joke>>
 	) {
 		cacheService.baseSection = "jokes"
 	}
@@ -126,15 +126,23 @@ export class JokeService {
         signature: Signature,
         em?: EntityManager
     ): Promise<PaginatedResponse<UserJoke>> {
-        if (this.shouldCachePopular(sortByPopularity, isFavourites, tags, search, token)) {
-            return this.getCachedPopular(pageSize, signature, em);
-        }
+		const f = async (em: EntityManager) => {
+			let user: User | null = null;
+			if (signature.username != null) {
+				user = await this.userService.getUserOrThrow(signature.username, em);
+			}
+			let res: PaginatedResponse<Joke>;
+			if (this.shouldCachePopular(sortByPopularity, isFavourites, tags, search, token)) {
+				res = await this.getCachedPopular(pageSize, user, em);
+			} else if (this.shouldCacheTags(sortByPopularity, tags, isFavourites, search, token)) {
+				res = await this.getCachedByTags(pageSize, sortByPopularity, tags[0], user, em);
+			} else {
+				res = await this.executeSearch(pageSize, token, sortByPopularity, isFavourites, tags, search, user, em);
+			}
 
-        if (this.shouldCacheTags(sortByPopularity, tags, isFavourites, search, token)) {
-            return this.getCachedByTags(pageSize, sortByPopularity, tags[0], signature, em);
-        }
-
-        return this.executeSearch(pageSize, token, sortByPopularity, isFavourites, tags, search, signature, em);
+			return await this.toUserJoke(user, res, em);
+		};
+		return em ? f(em) : this.dataSource.transaction(f);
     }
 
 	private shouldCachePopular(
@@ -167,9 +175,9 @@ export class JokeService {
 
 	private async getCachedPopular(
         pageSize: number,
-        signature: Signature,
+        user: User | null,
         em?: EntityManager
-    ): Promise<PaginatedResponse<UserJoke>> {
+    ): Promise<PaginatedResponse<Joke>> {
         const key = this.cacheService.createKeyBuilder()
 			.addValue("popular")
 			.addSection(pageSize)
@@ -181,7 +189,7 @@ export class JokeService {
         }
 
         const result = await this.executeSearch(
-            pageSize, null, true, false, [], null, signature, em
+            pageSize, null, true, false, [], null, user, em
         );
 
         await this.cacheService.set(key, result, 300000);
@@ -192,9 +200,9 @@ export class JokeService {
         pageSize: number,
         sortByPopularity: boolean,
         tag: string,
-        signature: Signature,
+        user: User | null,
         em?: EntityManager
-    ): Promise<PaginatedResponse<UserJoke>> {
+    ): Promise<PaginatedResponse<Joke>> {
         const key = this.cacheService.createKeyBuilder()
 			.addValue("tags")
 			.addSection(tag)
@@ -207,7 +215,7 @@ export class JokeService {
         }
 
         const result = await this.executeSearch(
-            pageSize, null, sortByPopularity, false, [tag], null, signature, em
+            pageSize, null, sortByPopularity, false, [tag], null, user, em
         );
 
         await this.cacheService.set(key, result, 120000);
@@ -221,14 +229,10 @@ export class JokeService {
 		isFavourites: boolean,
 		tags: string[],
 		search: string | null,
-		signature: Signature,
+		user: User | null,
 		em?: EntityManager
-	): Promise<PaginatedResponse<UserJoke>> {
+	): Promise<PaginatedResponse<Joke>> {
 		const f = async (em: EntityManager) => {
-			let user: User | null = null;
-			if (signature.username != null) {
-				user = await this.userService.getUserOrThrow(signature.username, em);
-			}
 			const lastId = decodeToken(token);
 			const query = em
 				.createQueryBuilder(Joke, 'joke')
@@ -297,47 +301,58 @@ export class JokeService {
 				nextToken = encodeToken(jokes[pageSize - 1].id);
 				jokes.pop();
 			}
-
-			if (!user) {
-            	return {
-               		token: nextToken,
-					value: jokes.map(UserJoke.fromJokeUnauthorized)
-				};
-			}
-
-			const jokeIds = jokes.map(j => j.id);
-			
-			const favourites = await em
-				.createQueryBuilder(Favourite, 'fav')
-				.leftJoinAndSelect('fav.joke', 'joke')
-				.where('fav.user_username = :username', { username: user.username })
-				.andWhere('fav.joke_id IN (:...jokeIds)', { jokeIds })
-				.getMany();
-			
-			const favouriteJokeIds = new Set(favourites.map(f => f.joke.id));
-
-			const ratings = await em
-				.createQueryBuilder(Rating, 'rating')
-				.leftJoinAndSelect('rating.joke', 'joke')
-				.where('rating.user_username = :username', { username: user.username })
-				.andWhere('rating.joke_id IN (:...jokeIds)', { jokeIds })
-				.getMany();
-
-			const userRatingsMap = new Map<number, number>(ratings.map((r: Rating) => [r.joke.id, r.score]));
-
 			return {
 				token: nextToken,
-				value: jokes.map(
-					joke => UserJoke.fromJoke(
-						joke,
-						favouriteJokeIds.has(joke.id),
-						userRatingsMap.get(joke.id) ?? null
-					)
-				)
+				value: jokes
 			};
 		};
 		return em ? f(em) : this.dataSource.transaction(f);
 	}
+
+	private async toUserJoke(
+		user: User | null,
+		paginatedJoke: PaginatedResponse<Joke>,
+		em: EntityManager
+	) {
+		if (!user) {
+			return {
+				token: paginatedJoke.token,
+				value: paginatedJoke.value.map(UserJoke.fromJokeUnauthorized)
+			};
+		}
+
+		const jokeIds = paginatedJoke.value.map(j => j.id);
+		
+		const favourites = await em
+			.createQueryBuilder(Favourite, 'fav')
+			.leftJoinAndSelect('fav.joke', 'joke')
+			.where('fav.user_username = :username', { username: user.username })
+			.andWhere('fav.joke_id IN (:...jokeIds)', { jokeIds })
+			.getMany();
+		
+		const favouriteJokeIds = new Set(favourites.map(f => f.joke.id));
+
+		const ratings = await em
+			.createQueryBuilder(Rating, 'rating')
+			.leftJoinAndSelect('rating.joke', 'joke')
+			.where('rating.user_username = :username', { username: user.username })
+			.andWhere('rating.joke_id IN (:...jokeIds)', { jokeIds })
+			.getMany();
+
+		const userRatingsMap = new Map<number, number>(ratings.map((r: Rating) => [r.joke.id, r.score]));
+
+		return {
+			token: paginatedJoke.token,
+			value: paginatedJoke.value.map(
+				joke => UserJoke.fromJoke(
+					joke,
+					favouriteJokeIds.has(joke.id),
+					userRatingsMap.get(joke.id) ?? null
+				)
+			)
+		};
+	}
+	
 
 	async addToFavourites(
 		jokeId: number,

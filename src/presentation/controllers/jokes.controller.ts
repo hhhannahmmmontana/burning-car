@@ -219,7 +219,7 @@ export class JokesController {
     })
     async rateJoke(
         @Param('id', ParseIntPipe) id: number,
-        @Param('id', ParseFloatPipe) rating: number,
+        @Query('rating', ParseFloatPipe) rating: number,
         @CurrentUser() user: UserDto
     ) {
         return await this.jokesService.rateJoke(id, rating, user.username);

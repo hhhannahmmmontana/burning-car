@@ -93,7 +93,7 @@ export class CacheService<T> {
         if (!res) {
             return undefined;
         }
-        return JSON.parse(res);
+        return JSON.parse(res, this.dateReviver);
     }
 
     async set(key: CacheKey, value: T, ttl: number) {
@@ -158,5 +158,15 @@ export class CacheService<T> {
         if (bytes < 1024) return `${bytes} B`;
         if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KB`;
         return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+    }
+
+    private dateReviver(key: string, value: any): any {
+        if (typeof value === 'string') {
+            const isoDateRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z$/;
+            if (isoDateRegex.test(value)) {
+                return new Date(value);
+            }
+        }
+        return value;
     }
 }
