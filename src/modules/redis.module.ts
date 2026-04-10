@@ -1,4 +1,3 @@
-// redis.module.ts
 import { Module, Global } from '@nestjs/common';
 import { CacheModule } from '@nestjs/cache-manager';
 import { redisStore } from 'cache-manager-ioredis-yet';
@@ -8,6 +7,8 @@ const redisClient = new Redis({
     host: process.env.REDIS_HOST || 'localhost',
     port: parseInt(process.env.REDIS_PORT || '6379'),
 });
+
+console.log(process.env.REDIS_HOST || 'localhost');
 
 @Global()
 @Module({

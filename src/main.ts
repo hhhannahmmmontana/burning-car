@@ -27,7 +27,7 @@ async function bootstrap() {
 		},
 	}));
 	const logger = new Logger('NestApplication');
-	const port = process.env.SERVICE_PORT ?? 3000;
+	const port = 3000;
 	logger.log(`Server will be running on port ${port}`);
 
 	const config = new DocumentBuilder()
