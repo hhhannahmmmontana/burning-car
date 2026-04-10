@@ -16,7 +16,7 @@ import { CacheService } from "./cache.service";
 @Injectable()
 export class JokeService {
 	private readonly INVALIDATIVE_PAGE_SIZES = [5, 10, 15];
-	private readonly POPULARITY_INVALIDATION_TRESHOLD = 100;
+	private readonly POPULARITY_INVALIDATION_THRESHOLD = 100;
 
 	constructor(
 		private readonly dataSource: DataSource,
@@ -47,7 +47,7 @@ export class JokeService {
             }
             joke.sign(signature, user);
             const saved = await em.save(joke);
-			await this.invalidateCache(tags);
+			await this.tryInvalidateCache(joke.ratesAmount, tags);
             return UserJoke.fromJokeUnauthorized(saved);
         };
         return em ? f(em) : this.dataSource.transaction(f);
@@ -410,7 +410,7 @@ export class JokeService {
 				ratingEntity.user = user;
 			}
 			ratingEntity.score = rating;
-			await this.invalidateCache(joke.tags.map(it => it.name));
+			await this.tryInvalidateCache(joke.ratesAmount, joke.tags.map(it => it.name));
 			await em.save(ratingEntity);
 		};
 		return em ? f(em) : this.dataSource.transaction(f);
@@ -435,7 +435,10 @@ export class JokeService {
 		this.cacheService.invalidateValue(key, tag);
 	}
 
-	private async invalidateCache(tags: string[]) {
+	private async tryInvalidateCache(ratesAmount: number, tags: string[]) {
+		if (ratesAmount < this.POPULARITY_INVALIDATION_THRESHOLD) {
+			return;
+		}
 		await this.invalidatePopularCache();
 		if (tags.length === 1) {
 			await this.invalidateTagCache(tags[0]);
