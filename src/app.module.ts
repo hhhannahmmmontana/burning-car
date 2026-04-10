@@ -7,8 +7,7 @@ import { JokesModule } from './modules/jokes.module';
 import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { join } from 'path';
-import { CacheModule } from '@nestjs/cache-manager';
-import { redisStore } from 'cache-manager-ioredis-yet';
+import { RedisModule } from './modules/redis.module';
 
 @Module({
 	imports: [
@@ -25,18 +24,7 @@ import { redisStore } from 'cache-manager-ioredis-yet';
 			graphiql: true,
 			autoSchemaFile: join(process.cwd(), 'src/schema.gql')
 		}),
-		CacheModule.register({
-            isGlobal: true,
-			useFactory: async () => ({
-                store: await redisStore({
-                    host: process.env.REDIS_HOST || 'localhost',
-                    port: process.env.REDIS_PORT || 6379,
-                }),
-                ttl: 300000,
-            }),
-            ttl: 60000,
-            max: 100,
-        }),
+		RedisModule,
 		UsersModule,
 		JokesModule,
 	],

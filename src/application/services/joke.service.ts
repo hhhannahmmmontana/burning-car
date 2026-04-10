@@ -232,8 +232,9 @@ export class JokeService {
 			const lastId = decodeToken(token);
 			const query = em
 				.createQueryBuilder(Joke, 'joke')
-				.leftJoinAndSelect('joke.author', 'author')
-				.leftJoinAndSelect('joke.tags', 'tag')
+				.leftJoin('joke.author', 'author')
+				.leftJoin('joke.tags', 'tag')
+				.addSelect(['author.username', 'tag.name'])
 				.orderBy('joke.id', 'DESC')
 				.take(pageSize + 1);
 
