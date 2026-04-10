@@ -8,6 +8,7 @@ import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { join } from 'path';
 import { RedisModule } from './modules/redis.module';
+import { AuthModule } from './modules/auth.module';
 
 @Module({
 	imports: [
@@ -27,6 +28,7 @@ import { RedisModule } from './modules/redis.module';
 		RedisModule,
 		UsersModule,
 		JokesModule,
+		AuthModule,
 	],
 	controllers: [],
 	providers: [],

@@ -33,9 +33,4 @@ export class SearchJokesInput {
     @IsOptional()
     @IsBoolean()
     isFavourites?: boolean;
-
-    @Field(() => String, { nullable: true })
-    @IsOptional()
-    @IsString()
-    username?: string;
 }

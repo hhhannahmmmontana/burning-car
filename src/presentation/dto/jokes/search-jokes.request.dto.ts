@@ -53,11 +53,4 @@ export class SearchJokesDto {
     @IsOptional()
     @IsString()
     search: string | null = null;
-
-    @ApiPropertyOptional({
-        description: 'Имя пользователя'
-    })
-    @IsOptional()
-    @IsString()
-    username: string | null = null;
 }

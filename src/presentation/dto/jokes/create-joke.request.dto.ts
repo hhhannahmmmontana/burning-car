@@ -20,13 +20,4 @@ export class CreateJokeRequestDto {
     @IsArray()
     @IsString({ each: true })
     tags: string[] = [];
-
-    @ApiPropertyOptional({
-        description: "Никнейм автора",
-        example: "volodyapokalipsis",
-        nullable: true
-    })
-    @IsOptional()
-    @IsString()
-    username?: string | null;
 }

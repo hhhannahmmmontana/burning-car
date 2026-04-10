@@ -34,7 +34,14 @@ async function bootstrap() {
         .setTitle('Jokes API')
         .setDescription('API description')
         .setVersion('1.0')
-        .addBearerAuth()
+        .addBearerAuth({
+			description: 'Введите JWT токен',
+			name: 'Authorization',
+			scheme: 'bearer',
+			type: 'http',
+			bearerFormat: 'JWT',
+			in: 'header',
+		}, 'access-token')
         .build();
 
 	const document = SwaggerModule.createDocument(app, config);

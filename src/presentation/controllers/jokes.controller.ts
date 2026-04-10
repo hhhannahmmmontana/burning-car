@@ -1,20 +1,20 @@
-import { Body, Controller, Get, Post, Param, Query, Req, ParseIntPipe, Delete, HttpCode } from "@nestjs/common";
+import { Body, Controller, Get, Post, Param, Query, Req, ParseIntPipe, Delete, HttpCode, ParseFloatPipe, UseGuards } from "@nestjs/common";
 import { JokeService } from "src/application/services/joke.service";
 import { SearchJokesDto } from "../dto/jokes/search-jokes.request.dto";
-import { MarkFavouriteDto } from "../dto/jokes/mark-favourite.request.dto";
 import { createSignature } from "src/domain/signature";
 import * as express from 'express';
-import { Joke } from "src/domain/entities/joke.entity";
 import { PaginatedResponse } from "src/domain/paginated-response";
-import { ApiOperation, ApiResponse, ApiTags, ApiParam, ApiQuery } from "@nestjs/swagger";
+import { ApiOperation, ApiResponse, ApiTags, ApiParam, ApiQuery, ApiBearerAuth } from "@nestjs/swagger";
 import { JokeResponseDto } from "../dto/jokes/joke.response.dto";
 import { CreateJokeRequestDto } from "../dto/jokes/create-joke.request.dto";
-import { RateJokeRequestDto } from "../dto/jokes/rate-joke.request.dto";
 import { CreateCommentRequestDto } from "../dto/jokes/create-comment.request.dto";
 import { CommentResponseDto } from "../dto/jokes/comment.response.dto";
 import { GetCommentsRequestDto } from "../dto/jokes/get-comments.request.dto";
 import { UserJoke } from "src/domain/entities/user-joke.entity";
-import { GetJokeRequestDto } from "../dto/jokes/get-joke.request.dto";
+import { JwtAuthGuard } from "../guards/jwt-auth.guard";
+import { CurrentUser } from "../extras/decorators/current-user.decorator";
+import { UserDto } from "../dto/auth/user.dto";
+import { OptionalJwtAuthGuard } from "../guards/optional-jwt-auth.guard";
 
 @ApiTags("Jokes")
 @Controller("jk")
@@ -22,6 +22,8 @@ export class JokesController {
     constructor(private readonly jokesService: JokeService) {}
 
     @Post()
+    @UseGuards(OptionalJwtAuthGuard)
+    @ApiBearerAuth('access-token')
     @ApiOperation({ 
         summary: 'Создать новую шутку'
     })
@@ -41,13 +43,23 @@ export class JokesController {
             }
         }
     })
-    async create(@Body() dto: CreateJokeRequestDto, @Req() req: express.Request): Promise<JokeResponseDto> {
+    async create(
+        @Body() dto: CreateJokeRequestDto,
+        @Req() req: express.Request,
+        @CurrentUser() user?: UserDto,
+    ): Promise<JokeResponseDto> {
         return JokeResponseDto.fromEntity(
-            await this.jokesService.createJoke(dto.text, dto.tags, createSignature(dto.username ?? null, req))
+            await this.jokesService.createJoke(
+                dto.text,
+                dto.tags,
+                createSignature(user?.username ?? null, req)
+            )
         );
     }
 
     @Get(':id')
+    @UseGuards(OptionalJwtAuthGuard)
+    @ApiBearerAuth('access-token')
     @ApiOperation({ 
         summary: 'Получить шутку по ID'
     })
@@ -69,13 +81,15 @@ export class JokesController {
     async getJoke(
         @Param('id', ParseIntPipe)
         id: number,
-        @Body()
-        dto: GetJokeRequestDto
+        @CurrentUser()
+        user?: UserDto,
     ): Promise<JokeResponseDto> {
-        return JokeResponseDto.fromEntity(await this.jokesService.getJoke(id, dto.username));
+        return JokeResponseDto.fromEntity(await this.jokesService.getJoke(id, user?.username ?? null));
     }
 
     @Get()
+    @UseGuards(OptionalJwtAuthGuard)
+    @ApiBearerAuth('access-token')
     @ApiOperation({ 
         summary: 'Поиск шуток',
         description: 'Поиск с пагинацией, фильтрацией по тегам и тексту'
@@ -93,7 +107,8 @@ export class JokesController {
     })
     async searchJokes(
         @Query() dto: SearchJokesDto,
-        @Req() req: express.Request
+        @Req() req: express.Request,
+        @CurrentUser() user?: UserDto
     ): Promise<PaginatedResponse<JokeResponseDto>> {
         const res = await this.jokesService.searchJokes(
             dto.pageSize,
@@ -102,7 +117,7 @@ export class JokesController {
             dto.isFavourites ?? false,
             dto.tags ?? [],
             dto.search ?? null,
-            createSignature(dto.username, req)
+            createSignature(user?.username ?? null, req)
         );
         return {
             token: res.token,
@@ -111,6 +126,8 @@ export class JokesController {
     }
 
     @Post(':id/favourite')
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth('access-token')
     @ApiOperation({ 
         summary: 'Добавить шутку в избранное'
     })
@@ -134,12 +151,14 @@ export class JokesController {
     })
     addToFavourites(
         @Param('id', ParseIntPipe) id: number,
-        @Body() dto: MarkFavouriteDto
+        @CurrentUser() user: UserDto
     ): Promise<void> {
-        return this.jokesService.addToFavourites(id, dto.username);
+        return this.jokesService.addToFavourites(id, user.username);
     }
 
     @Delete(':id/favourite')
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth('access-token')
     @HttpCode(204)
     @ApiOperation({ 
         summary: 'Убрать шутку из избранного'
@@ -160,12 +179,14 @@ export class JokesController {
     })
     removeFromFavourites(
         @Param('id', ParseIntPipe) id: number,
-        @Body() dto: MarkFavouriteDto
+        @CurrentUser() user: UserDto
     ): Promise<void> {
-        return this.jokesService.removeFromFavourites(id, dto.username);
+        return this.jokesService.removeFromFavourites(id, user.username);
     }
 
     @Post(':id/rate')
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth('access-token')
     @ApiOperation({ 
         summary: 'Оценить шутку'
     })
@@ -174,6 +195,12 @@ export class JokesController {
         description: 'ID шутки', 
         type: Number,
         example: 1
+    })
+    @ApiParam({ 
+        name: 'rating', 
+        description: 'Оценка', 
+        type: Number,
+        example: 5
     })
     @ApiResponse({ 
         status: 201, 
@@ -192,12 +219,15 @@ export class JokesController {
     })
     async rateJoke(
         @Param('id', ParseIntPipe) id: number,
-        @Body() dto: RateJokeRequestDto
+        @Param('id', ParseFloatPipe) rating: number,
+        @CurrentUser() user: UserDto
     ) {
-        return await this.jokesService.rateJoke(id, dto.rating, dto.username)
+        return await this.jokesService.rateJoke(id, rating, user.username);
     }
 
     @Post(':id/comment')
+    @UseGuards(OptionalJwtAuthGuard)
+    @ApiBearerAuth('access-token')
     @ApiOperation({ 
         summary: 'Добавить комментарий к шутке'
     })
@@ -223,13 +253,14 @@ export class JokesController {
     async comment(
         @Param('id', ParseIntPipe) id: number,
         @Body() dto: CreateCommentRequestDto,
-        @Req() req: express.Request
+        @Req() req: express.Request,
+        @CurrentUser() user?: UserDto
     ): Promise<CommentResponseDto> {
         return CommentResponseDto.fromEntity(
             await this.jokesService.comment(
                 id,
                 dto.text,
-                createSignature(dto.username ?? null, req)
+                createSignature(user?.username ?? null, req)
             )
         );
     }
