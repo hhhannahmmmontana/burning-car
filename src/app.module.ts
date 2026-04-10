@@ -7,6 +7,7 @@ import { JokesModule } from './modules/jokes.module';
 import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { join } from 'path';
+import { CacheModule } from '@nestjs/cache-manager';
 
 @Module({
 	imports: [
@@ -23,6 +24,11 @@ import { join } from 'path';
 			graphiql: true,
 			autoSchemaFile: join(process.cwd(), 'src/schema.gql')
 		}),
+		CacheModule.register({
+            isGlobal: true,
+            ttl: 60000,
+            max: 100,
+        }),
 		UsersModule,
 		JokesModule,
 	],

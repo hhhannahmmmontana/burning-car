@@ -22,6 +22,7 @@ export class JokesResolver {
         const result = await this.jokeService.searchJokes(
             input.pageSize,
             input.token ?? null,
+            input.sortByPopularity ?? true,
             input.isFavourites ?? false,
             input.tags ?? [],
             input.search ?? null,

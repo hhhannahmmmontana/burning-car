@@ -24,6 +24,11 @@ export class SearchJokesInput {
     @IsString()
     search?: string;
 
+    @Field(() => Boolean, { nullable: true, defaultValue: true })
+    @IsOptional()
+    @IsBoolean()
+    sortByPopularity?: boolean;
+
     @Field(() => Boolean, { nullable: true, defaultValue: false })
     @IsOptional()
     @IsBoolean()

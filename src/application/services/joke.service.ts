@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, NotFoundException, PayloadTooLargeException } from "@nestjs/common";
+import { ConflictException, Injectable, Inject, NotFoundException, PayloadTooLargeException } from "@nestjs/common";
 import { Joke } from "src/domain/entities/joke.entity";
 import { Signature } from "src/domain/signature";
 import { DataSource, EntityManager } from "typeorm";
@@ -11,6 +11,8 @@ import { User } from "src/domain/entities/user.entity";
 import { Rating } from "src/domain/entities/rating.entity";
 import { Commentary } from "src/domain/entities/commentary.entity";
 import { UserJoke } from "../../domain/entities/user-joke.entity";
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import * as CacheManager from "cache-manager";
 
 @Injectable()
 export class JokeService {
@@ -18,6 +20,7 @@ export class JokeService {
 		private readonly dataSource: DataSource,
 		private readonly tagService: TagService,
 		private readonly userService: UserService,
+		@Inject(CACHE_MANAGER) private cacheManager: CacheManager.Cache,
 	) {}
 
 	async createJoke(
@@ -111,6 +114,7 @@ export class JokeService {
 	async searchJokes(
 		pageSize: number,
 		token: string | null,
+		sortByPopularity: boolean,
 		isFavourites: boolean,
 		tags: string[],
 		search: string | null,
@@ -166,7 +170,11 @@ export class JokeService {
 						`(to_tsvector('russian', joke.text) @@ to_tsquery('russian', :search)
 						OR to_tsvector('english', joke.text) @@ to_tsquery('english', :search))`,
 						{ search: tsQuery }
-        			)
+        			);
+			}
+
+			if (sortByPopularity) {
+				query
 					.orderBy('joke.ratesAmount', 'DESC')
 					.addOrderBy('joke.id', 'DESC');
 			}

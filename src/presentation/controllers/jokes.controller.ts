@@ -82,6 +82,7 @@ export class JokesController {
     })
     @ApiQuery({ name: 'pageSize', description: 'Размер страницы', type: Number, example: 10 })
     @ApiQuery({ name: 'token', description: 'Токен пагинации', required: false, type: String })
+    @ApiQuery({ name: 'sortByPopularity', description: 'Сортировать по популярности', required: false, type: Boolean })
     @ApiQuery({ name: 'isFavourites', description: 'Только избранные', required: false, type: Boolean })
     @ApiQuery({ name: 'tags', description: 'Фильтр по тегам', required: false, type: [String] })
     @ApiQuery({ name: 'search', description: 'Поиск по тексту', required: false, type: String })
@@ -97,6 +98,7 @@ export class JokesController {
         const res = await this.jokesService.searchJokes(
             dto.pageSize,
             dto.token ?? null,
+            dto.sortByPopularity ?? true,
             dto.isFavourites ?? false,
             dto.tags ?? [],
             dto.search ?? null,

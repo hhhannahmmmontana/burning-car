@@ -20,6 +20,15 @@ export class SearchJokesDto {
     token: string = "";
 
     @ApiPropertyOptional({
+        description: 'Сортировать по популярности',
+        example: true
+    })
+    @IsOptional()
+    @Transform(({ value }) => value !== 'false')
+    @IsBoolean()
+    sortByPopularity: boolean = true;
+
+    @ApiPropertyOptional({
         description: 'Только избранные',
         example: false
     })
