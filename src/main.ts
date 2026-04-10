@@ -12,7 +12,8 @@ async function bootstrap() {
 			'http://localhost:3000',
 			'http://localhost:6767',
 			'http://localhost',
-			'http://bc-front'
+			'http://bc-front',
+			'https://filly-glowing-loosely.ngrok-free.app'
 		],
 		methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
 		allowedHeaders: ['Content-Type', 'Authorization'],
