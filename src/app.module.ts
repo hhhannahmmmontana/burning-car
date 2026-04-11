@@ -22,8 +22,7 @@ import { AuthModule } from './modules/auth.module';
 		}),
 		GraphQLModule.forRoot<ApolloDriverConfig>({
 			driver: ApolloDriver,
-			graphiql: true,
-			csrfPrevention: false,
+			playground: true,
 			autoSchemaFile: join(process.cwd(), 'src/schema.gql')
 		}),
 		RedisModule,

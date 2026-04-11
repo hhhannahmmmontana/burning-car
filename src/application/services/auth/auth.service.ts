@@ -26,7 +26,7 @@ export class AuthService {
         }
         const user = await this.userService.createUser(
             username,
-            await bcrypt.hash(password, 10)
+            await bcrypt.hash(password, 14)
         );
         return this.generateToken(user);
     }
