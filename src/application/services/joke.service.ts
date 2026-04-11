@@ -233,7 +233,7 @@ export class JokeService {
 		em?: EntityManager
 	): Promise<PaginatedResponse<Joke>> {
 		const f = async (em: EntityManager) => {
-			const lastId = decodeToken(token);
+			const cursor = decodeToken(token);
 			const query = em
 				.createQueryBuilder(Joke, 'joke')
 				.leftJoin('joke.author', 'author')
@@ -242,8 +242,8 @@ export class JokeService {
 				.orderBy('joke.id', 'DESC')
 				.take(pageSize + 1);
 
-			if (lastId !== null) {
-				query.where('joke.id > :lastId', { lastId });
+			if (!sortByPopularity && cursor !== null) {
+				query.where('joke.id < :lastId', { cursor });
 			}
 
 			if (isFavourites) {
@@ -285,6 +285,9 @@ export class JokeService {
 				query
 					.orderBy('joke.ratesAmount', 'DESC')
 					.addOrderBy('joke.id', 'DESC');
+				if (cursor !== null) {
+					query.skip(cursor);
+				}
 			}
 
 			const jokes = await query.getMany();
@@ -298,7 +301,13 @@ export class JokeService {
 
 			let nextToken: string | null = null;
 			if (jokes.length > pageSize) {
-				nextToken = encodeToken(jokes[pageSize - 1].id);
+				let value: number;
+				if (sortByPopularity) {
+					value = cursor + pageSize;
+				} else {
+					value = jokes[pageSize - 1].id;
+				}
+				nextToken = encodeToken(value);
 				jokes.pop();
 			}
 			return {
